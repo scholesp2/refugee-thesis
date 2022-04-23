@@ -1,0 +1,1374 @@
+---
+title: "Thesis Work"
+output: html_notebook
+---
+
+# Let's load in the data and packages
+
+```{r}
+
+#pscholes for at office
+#paulb for at home compys
+library(haven)
+UNASR16 <- read_dta("C:/Users/paulb/OneDrive/Documents/Refugee/2016/2016-ASR_Public_Use_File.dta")
+#View(ASR16)
+
+library(haven)
+UNASR17 <- read_dta("C:/Users/paulb/OneDrive/Documents/Refugee/2017/2017 ASR_Public_Use_File (1).dta")
+#View(ASR17)
+
+library(haven)
+UNASR18 <- read_dta("C:/Users/paulb/OneDrive/Documents/Refugee/2018/2018 ASR_Public_Use_File.dta")
+#View(ASR18)
+```
+
+```{r}
+library(janitor)
+library(stargazer)
+library(tidyverse)
+library(mice)
+library(DescTools)
+library(survey)
+library(lmtest)
+```
+
+
+Setting up weighted household level analysis
+
+```{r}
+#install.packages("dplyr")
+library(survey)
+UNSR16<- UNASR16[UNASR16$respondent==1,]
+UNSR17<- UNASR17[UNASR17$respondent==1,]
+UNSR18<- UNASR18[UNASR18$respondent==1,]
+
+match("Weight_household_R1", names(UNSR16))
+match("Weight_household_R27", names(UNSR16))
+
+match("Weight_household", names(UNSR16))
+
+#ASR16 <- svrepdesign(repweights = ,weights =UNSR16$Weight_household, data = UNSR16 )
+
+
+```
+
+# Cleaning and Making Variables
+
+## Making Time till First job
+
+```{r}
+#Making the Time to Job in years variable
+UNSR16$WHENJOB<-UNSR16$qn18dyear
+
+UNSR17$WHENJOB<-UNSR17$qn18dyear
+
+UNSR18$WHENJOB<-UNSR18$qn18dyear
+summary(UNSR16$qn18dyear)
+
+
+# Making the WhenArrive Variable
+UNSR16$WHENARRIVE<-UNSR16$qn1jyear
+UNSR17$WHENARRIVE<-UNSR17$qn1jyear
+UNSR18$WHENARRIVE<-UNSR18$qn1jyear
+
+
+#Time Till First job in the United States
+UNSR16$TILLJOBb<- UNSR16$WHENJOB-UNSR16$WHENARRIVE
+UNSR17$TILLJOBb<- UNSR17$WHENJOB-UNSR17$WHENARRIVE
+UNSR18$TILLJOBb<- UNSR18$WHENJOB-UNSR18$WHENARRIVE
+UNSR16$TILLJOBb<-ifelse(UNSR16$TILLJOBb==-1| UNSR16$TILLJOBb==-2, 1, UNSR16$TILLJOBb)
+
+UNSR17$TILLJOBb<-ifelse(UNSR17$TILLJOBb==-1| UNSR17$TILLJOBb==-2, 1, UNSR17$TILLJOBb)
+
+UNSR18$TILLJOBb<-ifelse(UNSR18$TILLJOBb==-1| UNSR18$TILLJOBb==-2, 1, UNSR18$TILLJOBb)
+# Making the WhenArrive Variable a how many years in US variable
+UNSR16$WHENARRIVE<-abs(UNSR16$qn1jyear-2016)
+UNSR17$WHENARRIVE<-abs(UNSR17$qn1jyear-2017)
+UNSR18$WHENARRIVE<-abs(UNSR18$qn1jyear-2018)
+
+UNSR16$TILLJOB<-ifelse(is.na(UNSR16$TILLJOBb), 0, UNSR16$TILLJOBb)
+UNSR17$TILLJOB<-ifelse(is.na(UNSR17$TILLJOBb), 0, UNSR17$TILLJOBb)
+UNSR18$TILLJOB<-ifelse(is.na(UNSR18$TILLJOBb), 0, UNSR18$TILLJOBb)
+UNSR16$TILLJOB<-ifelse(UNSR16$TILLJOBb>1, 0, UNSR16$TILLJOBb)
+UNSR17$TILLJOB<-ifelse(UNSR17$TILLJOBb>1, 0, UNSR16$TILLJOBb)
+UNSR18$TILLJOB<-ifelse(UNSR18$TILLJOBb>1, 0, UNSR16$TILLJOBb)
+
+#factorize
+UNSR16$WHENJOB<- factor(UNSR16$WHENJOB, ordered=T)
+UNSR17$WHENJOB<- factor(UNSR17$WHENJOB, ordered=T)
+UNSR18$WHENJOB<- factor(UNSR18$WHENJOB, ordered=T)
+
+UNSR16$WHENARRIVE<- factor(UNSR16$WHENARRIVE)
+UNSR17$WHENARRIVE<- factor(UNSR17$WHENARRIVE)
+UNSR18$WHENARRIVE<- factor(UNSR18$WHENARRIVE)
+
+```
+```{r}
+UNSR16$TILLJOB<-ifelse(UNSR16$TILLJOB==-5, 1, UNSR16$TILLJOB)
+UNSR17$TILLJOB<-ifelse(UNSR17$TILLJOB==-5, 1, UNSR16$TILLJOB)
+UNSR18$TILLJOB<-ifelse(UNSR18$TILLJOB==-5, 1, UNSR16$TILLJOB)
+
+UNSR16$TILLJOBb<-ifelse(UNSR16$TILLJOBb==-5, 1, UNSR16$TILLJOBb)
+UNSR17$TILLJOBb<-ifelse(UNSR17$TILLJOBb==-5, 1, UNSR16$TILLJOBb)
+UNSR18$TILLJOBb<-ifelse(UNSR18$TILLJOBb==-5, 1, UNSR16$TILLJOBb)
+```
+## Making Economic Self-Sufficiency
+
+```{r}
+UNSR16$FI<- ifelse(UNSR16$ui_soi_pubassist==999, NA, ifelse(UNSR16$ui_soi_pubassist==1, 0,1))
+UNSR17$FI<- ifelse(UNSR17$ui_soi_pubassist==999, NA, ifelse(UNSR17$ui_soi_pubassist==1, 0,1))
+UNSR18$FI<- ifelse(UNSR18$ui_soi_pubassist==999, NA, ifelse(UNSR18$ui_soi_pubassist==1, 0,1))
+
+table(UNSR16$FI)
+```
+
+
+## Making Weekly Working Hours
+
+```{r}
+UNSR16$qn6a<- ifelse(UNSR16$qn6a==98 | UNSR16$qn6a==99, NA, UNSR16$qn6a)
+UNSR16$qn6b<- ifelse(UNSR16$qn6b==98 | UNSR16$qn6b==99, NA, UNSR16$qn6b)
+
+UNSR17$qn6a<- ifelse(UNSR17$qn6a==98 | UNSR17$qn6a==99, NA, UNSR17$qn6a)
+UNSR17$qn6b<- ifelse(UNSR17$qn6b==98 | UNSR17$qn6b==99, NA, UNSR17$qn6b)
+
+UNSR18$qn6a<- ifelse(UNSR18$qn6a==98 | UNSR18$qn6a==99, NA, UNSR18$qn6a)
+UNSR18$qn6b<- ifelse(UNSR18$qn6b==98 | UNSR18$qn6b==99, NA, UNSR18$qn6b)
+
+summary(UNSR16$qn6b)
+UNSR16$WEEKHOUR<- UNSR16$qn6b
+UNSR16$WEEKHOUR<- ifelse(is.na(UNSR16$WEEKHOUR), UNSR16$qn6a, UNSR16$qn6b)
+
+UNSR17$WEEKHOUR<- UNSR17$qn6b
+UNSR17$WEEKHOUR<- ifelse(is.na(UNSR17$WEEKHOUR), UNSR17$qn6a, UNSR17$qn6b)
+
+UNSR18$WEEKHOUR<- UNSR18$qn6b
+UNSR18$WEEKHOUR<- ifelse(is.na(UNSR18$WEEKHOUR), UNSR18$qn6a, UNSR18$qn6b)
+summary(UNSR16$WEEKHOUR)
+```
+## Making EDUC (Years of Education)
+```{r}
+UNSR16$EDUC<-ifelse(UNSR16$qn2a==99| UNSR16$qn2a==98, NA, UNSR16$qn2a)
+
+UNSR17$EDUC<-ifelse(UNSR17$qn2a==99| UNSR17$qn2a==98, NA, UNSR17$qn2a)
+
+UNSR18$EDUC<-ifelse(UNSR18$qn2a==99| UNSR18$qn2a==98, NA, UNSR18$qn2a)
+
+
+```
+
+## Making Pre-Displacement Economic Sector 1=Professional, 2= Sales, 3= Service, 4=Blue Collar, 5= STudent, 6=Other, 0=None
+```{r}
+UNSR16$qn3b<- ifelse(UNSR16$qn3b==98|UNSR16$qn3b== 99, NA, UNSR16$qn3b)
+
+UNSR17$qn3b<- ifelse(UNSR17$qn3b==98|UNSR17$qn3b== 99, NA, UNSR17$qn3b)
+
+
+UNSR18$qn3b<- ifelse(UNSR18$qn3b==98|UNSR18$qn3b== 99, NA, UNSR18$qn3b)
+
+##2016
+# Buissness Owner, Professional, management, and white collar will be a "Professional"
+UNSR16$ECOSECTOR<- ifelse(UNSR16$qn3b == 1| UNSR16$qn3b == 2|UNSR16$qn3b ==3|UNSR16$qn3b ==4|UNSR16$qn3b ==5, 1, 
+      #Sales will be Sales                    
+                  ifelse(UNSR16$qn3b ==6, 2, 
+                          #Hospitality, service workers, and laborers will be "Service"       
+                                 ifelse(UNSR16$qn3b ==9|UNSR16$qn3b ==10|UNSR16$qn3b ==11, 3, 
+                                        #Skilled Trades will be "Blue Collar"
+                                        ifelse(UNSR16$qn3b ==7|UNSR16$qn3b ==8|UNSR16$qn3b ==12, 4, 
+                 #None is none
+                 ifelse(UNSR16$qn3b ==96, 0, 
+                        #Students are students
+                        ifelse(UNSR16$qn3b ==13, 5, 
+                 #Other is other
+                 ifelse(UNSR16$qn3b== 97, 6, UNSR16$qn3b)))))))
+##2017
+UNSR17$ECOSECTOR<- ifelse(UNSR17$qn3b == 1| UNSR17$qn3b == 2|UNSR17$qn3b ==3|UNSR17$qn3b ==4|UNSR17$qn3b ==5, 1, 
+                          
+                          ifelse(UNSR17$qn3b ==6, 2, 
+                                 
+                                 ifelse(UNSR17$qn3b ==9|UNSR17$qn3b ==10|UNSR17$qn3b ==11, 3, 
+                                        
+                                        ifelse(UNSR17$qn3b ==7|UNSR17$qn3b ==8|UNSR17$qn3b ==12, 4, 
+                                               ifelse(UNSR17$qn3b ==96, 0, ifelse(UNSR17$qn3b ==13, 5, 
+                                                                                  ifelse(UNSR17$qn3b== 97, 6, UNSR17$qn3b)))))))
+##2018
+UNSR18$ECOSECTOR<- ifelse(UNSR18$qn3b == 1| UNSR18$qn3b == 2|UNSR18$qn3b ==3|UNSR18$qn3b ==4|UNSR18$qn3b ==5, 1, 
+                          
+                          ifelse(UNSR18$qn3b ==6, 2, 
+                                 
+                                 ifelse(UNSR18$qn3b ==9|UNSR18$qn3b ==10|UNSR18$qn3b ==11, 3, 
+                                        
+                                        ifelse(UNSR18$qn3b ==7|UNSR18$qn3b ==8|UNSR18$qn3b ==12, 4, 
+                                               ifelse(UNSR18$qn3b ==96, 0, ifelse(UNSR18$qn3b ==13, 5, 
+                                                                                  ifelse(UNSR18$qn3b== 97, 6, UNSR18$qn3b)))))))
+
+#2018 is a weird year and the User's Guide backs that up
+
+#Factorizing 
+UNSR16$ECOSECTOR<- factor(UNSR16$ECOSECTOR, levels = c(0:6), labels = c("None","Professional", "Sales", "Service", "Blue Collar", "Student", "Other"))
+
+UNSR17$ECOSECTOR<- factor(UNSR17$ECOSECTOR, levels = c(0:6), labels = c("None","Professional", "Sales", "Service", "Blue Collar", "Student", "Other"))
+
+UNSR18$ECOSECTOR<- factor(UNSR18$ECOSECTOR, levels = c(0:6), labels = c("None","Professional", "Sales", "Service", "Blue Collar", "Student", "Other"))
+
+UNSR16$ECOSECTOR<-relevel(UNSR16$ECOSECTOR, ref =5)
+UNSR17$ECOSECTOR<-relevel(UNSR17$ECOSECTOR, ref =5)
+UNSR18$ECOSECTOR<-relevel(UNSR18$ECOSECTOR, ref =5)
+```
+
+
+###Making a current economic sector variable 1=Blue Collar 2= Retail/Service, 3= Professional/Health/Ed/SocialServices, 4= General Logistics:Transport, Maintenance, General Products and Goods. 5= Other, 0=None
+```{r}
+#2016
+#missing
+UNSR16$URECOSEC<-ifelse(UNSR16$qn19b==99|UNSR16$qn19b==98,NA,
+                        #Blue Collar
+                        ifelse(UNSR16$qn19b==1|UNSR16$qn19b==8|UNSR16$qn19b==10, 1, 
+                               
+                  #Retail/Service
+                  
+                   ifelse(UNSR16$qn19b==2|UNSR16$qn19b==5|UNSR16$qn19b==7|UNSR16$qn19b==11, 2, 
+                             ifelse(UNSR16$qn19b==4|UNSR16$qn19b==3, 3, 
+                                    
+                                    #General logistics
+                                    
+                                  ifelse(UNSR16$qn19b==9|UNSR16$qn19b==6|UNSR16$qn19b==12, 4, 
+                                           ifelse(UNSR16$qn19b==97, 5 ,
+                                                  ifelse(UNSR16$qn19b==96, 0,UNSR16$qn19b)))))))
+#Factorize
+UNSR16$URECOSEC<- factor(UNSR16$URECOSEC, labels= c("None", "BlueCollar", "Retail/Sales", "Professional/ED/Health/SocialServices", "General Logistical Support", "Other"), levels = c(0:5))
+summary(UNSR16$URECOSEC)
+table(UNSR16$URECOSEC, UNSR16$qn19b)
+#2017
+UNSR17$URECOSEC<-ifelse(UNSR17$qn19b==99|UNSR17$qn19b==98,NA,
+                        #Blue Collar
+                        ifelse(UNSR17$qn19b==1|UNSR17$qn19b==8|UNSR17$qn19b==10, 1, 
+                               
+                  #Retail/Service
+                  
+                   ifelse(UNSR17$qn19b==2|UNSR17$qn19b==5|UNSR17$qn19b==7|UNSR17$qn19b==11, 2, 
+                             ifelse(UNSR17$qn19b==4|UNSR17$qn19b==3, 3, 
+                                    
+                                    #General logistics
+                                    
+                                  ifelse(UNSR17$qn19b==9|UNSR17$qn19b==6|UNSR17$qn19b==12, 4, 
+                                           ifelse(UNSR17$qn19b==97, 5 ,
+                                                  ifelse(UNSR17$qn19b==96, 0,UNSR17$qn19b)))))))
+summary(UNSR17$URECOSEC)
+
+#Factorize
+UNSR17$URECOSEC<- factor(UNSR17$URECOSEC, labels= c("None", "BlueCollar", "Retail/Sales", "Professional/ED/Health/SocialServices", "General Logistical Support", "Other"), levels = c(0:5))
+
+#2018
+UNSR18$URECOSEC<-ifelse(UNSR18$qn19b==99|UNSR18$qn19b==98,NA,
+                        #Blue Collar
+                        ifelse(UNSR18$qn19b==1|UNSR18$qn19b==8|UNSR18$qn19b==10, 1, 
+                               
+                  #Retail/Service
+                  
+                   ifelse(UNSR18$qn19b==2|UNSR18$qn19b==5|UNSR18$qn19b==7|UNSR18$qn19b==11, 2, 
+                             ifelse(UNSR18$qn19b==4|UNSR18$qn19b==3, 3, 
+                                    
+                                    #General logistics
+                                    
+                                  ifelse(UNSR18$qn19b==9|UNSR18$qn19b==6|UNSR18$qn19b==12, 4, 
+                                           ifelse(UNSR18$qn19b==97, 5 ,
+                                                  ifelse(UNSR18$qn19b==96, 0,UNSR18$qn19b)))))))
+#Factorize
+UNSR18$URECOSEC<- factor(UNSR18$URECOSEC, labels= c("None", "BlueCollar", "Retail/Sales", "Professional/ED/Health/SocialServices", "General Logistical Support", "Other"), levels = c(0:5))
+```
+
+
+
+
+```{r}
+#Cleaning Birth Country variable
+UNSR16$ORIGIN<-UNSR16$qn1g
+
+UNSR16$ORIGIN<- ifelse(UNSR16$qn1g==98|UNSR16$qn1g==99, NA, UNSR16$qn1g)
+
+UNSR17$ORIGIN<- ifelse(UNSR17$qn1g==98|UNSR17$qn1g==99, NA, UNSR17$qn1g)
+
+UNSR18$ORIGIN<- ifelse(UNSR18$qn1g==98|UNSR18$qn1g==99, NA, UNSR18$qn1g)
+
+####UNSR16$CONATT<- ifelse(UNSR16$ORIGIN==2, UNSR16$EDUC-3.8/)####
+
+#Make Origin a Factor with labels
+
+UNSR16$ORIGIN<- factor(UNSR16$ORIGIN, levels = c(2,3,5,6,7,9,10,16,18,22,24,96,97), labels = c("Bhutan", "Burma", "Cuba","DR Congo", "Eritrea", "Iran", "Iraq", "Somalia", "Syria", "Ukraine", "U.S.", "None", "Other"))
+
+UNSR17$ORIGIN<- factor(UNSR17$ORIGIN, levels = c(2,3,5,6,7,9,10,16,18,22,24,96,97), labels = c("Bhutan", "Burma", "Cuba","DR Congo", "Eritrea", "Iran", "Iraq", "Somalia", "Syria", "Ukraine", "U.S.", "None", "Other"))
+
+UNSR18$ORIGIN<- factor(UNSR18$ORIGIN, levels = c(2,3,5,6,7,9,10,16,18,22,24,96,97), labels = c("Bhutan", "Burma", "Cuba","DR Congo", "Eritrea", "Iran", "Iraq", "Somalia", "Syria", "Ukraine", "U.S.", "None", "Other"))
+
+
+UNSR16$ORIGIN<-relevel(UNSR16$ORIGIN,ref = 3)
+UNSR17$ORIGIN<-relevel(UNSR17$ORIGIN,ref = 3)
+UNSR18$ORIGIN <-relevel(UNSR18$ORIGIN,ref = 3)
+
+```
+
+## Unfinished Contextual Attainment
+
+### Making country specific variance estimates. All estimates use the UN Development Program Human Development report for 2015 or the most recently available data (for Somalia): https://hdr.undp.org/en/indicators/103006. These are just raw deviations from the mean. 
+```{r}
+#Bhutan Mean for 2015 Mean =3.4 
+UNSR16$CONTEXT<- ifelse(UNSR16$ORIGIN== "Bhutan", UNSR16$EDUC-3.4, 
+                        ifelse(UNSR16$ORIGIN=="Burma", UNSR16$EDUC-4.9, 
+                               ifelse(UNSR16$ORIGIN=="Cuba", UNSR16$EDUC-11.4,
+                                      ifelse(UNSR16$ORIGIN=="DR Congo", UNSR16$EDUC-6.4,
+                                             ifelse(UNSR16$ORIGIN=="Eritrea", UNSR16$EDUC-3.9,
+                                                    ifelse(UNSR16$ORIGIN=="Iran", UNSR16$EDUC-9.9, 
+                                                           ifelse(UNSR16$ORIGIN=="Iraq", UNSR16$EDUC-6.8,
+                                                                  ifelse(UNSR16$ORIGIN=="Somalia", UNSR16$EDUC-2.1,
+                                                                         ifelse(UNSR16$ORIGIN=="Syria", UNSR16$EDUC-5.1,
+                                                                              ifelse(UNSR16$ORIGIN=="Ukraine", UNSR16$EDUC-11.4, 
+                                                                                       ifelse(UNSR16$ORIGIN=="U.S.", UNSR16$EDUC-13.3, NA)))))))))))
+
+#2017
+
+UNSR17$CONTEXT<- ifelse(UNSR17$ORIGIN== "Bhutan", UNSR17$EDUC-3.4, 
+                        ifelse(UNSR17$ORIGIN=="Burma", UNSR17$EDUC-4.9, 
+                               ifelse(UNSR17$ORIGIN=="Cuba", UNSR17$EDUC-11.4,
+                                      ifelse(UNSR17$ORIGIN=="DR Congo", UNSR17$EDUC-6.4,
+                                             ifelse(UNSR17$ORIGIN=="Eritrea", UNSR17$EDUC-3.9,
+                                                    ifelse(UNSR17$ORIGIN=="Iran", UNSR17$EDUC-9.9, 
+                                                           ifelse(UNSR17$ORIGIN=="Iraq", UNSR17$EDUC-6.8,
+                                                                  ifelse(UNSR17$ORIGIN=="Somalia", UNSR17$EDUC-2.1,
+                                                                         ifelse(UNSR17$ORIGIN=="Syria", UNSR17$EDUC-5.1,
+                                                                              ifelse(UNSR17$ORIGIN=="Ukraine", UNSR17$EDUC-11.4, 
+                                                                                       ifelse(UNSR17$ORIGIN=="U.S.", UNSR17$EDUC-13.3, NA)))))))))))
+
+#2018
+
+UNSR18$CONTEXT<- ifelse(UNSR18$ORIGIN== "Bhutan", UNSR18$EDUC-3.4, 
+                        ifelse(UNSR18$ORIGIN=="Burma", UNSR18$EDUC-4.9, 
+                               ifelse(UNSR18$ORIGIN=="Cuba", UNSR18$EDUC-11.4,
+                                      ifelse(UNSR18$ORIGIN=="DR Congo", UNSR18$EDUC-6.4,
+                                             ifelse(UNSR18$ORIGIN=="Eritrea", UNSR18$EDUC-3.9,
+                                                    ifelse(UNSR18$ORIGIN=="Iran", UNSR18$EDUC-9.9, 
+                                                           ifelse(UNSR18$ORIGIN=="Iraq", UNSR18$EDUC-6.8,
+                                                                  ifelse(UNSR18$ORIGIN=="Somalia", UNSR18$EDUC-2.1,
+                                                                         ifelse(UNSR18$ORIGIN=="Syria", UNSR18$EDUC-5.1,
+                                                                              ifelse(UNSR18$ORIGIN=="Ukraine", UNSR18$EDUC-11.4, 
+                                                                                       ifelse(UNSR18$ORIGIN=="U.S.", UNSR18$EDUC-13.3, NA)))))))))))
+
+
+summary(UNSR17$CONTEXT)
+summary(UNSR18$CONTEXT)
+```
+
+## Pre-Migration English proficiency
+```{r}
+UNSR16$qn4a<- ifelse(UNSR16$qn4a== 8|UNSR16$qn4a==9, NA, UNSR16$qn4a)
+UNSR16$PREENG<- abs(UNSR16$qn4a-5)
+Freq(UNSR16$PREENG)
+UNSR16$PREENG<- factor(UNSR16$PREENG,levels = c(1,2,3,4), labels = c("Not at all", "Not Well", "Well", "Very Well"))
+UNSR17$qn4a<- ifelse(UNSR17$qn4a== 8|UNSR17$qn4a==9, NA, UNSR17$qn4a)
+UNSR17$PREENG<- abs(UNSR17$qn4a-5)
+UNSR17$PREENG<- factor(UNSR17$PREENG,levels = c(1,2,3,4), labels = c("Not at all", "Not Well", "Well", "Very Well"))
+UNSR18$qn4a<- ifelse(UNSR18$qn4a== 8|UNSR18$qn4a==9, NA, UNSR18$qn4a)
+UNSR18$PREENG<- abs(UNSR18$qn4a-5)
+UNSR18$PREENG<- factor(UNSR18$PREENG,levels = c(1,2,3,4), labels = c("Not at all", "Not Well", "Well", "Very Well"))
+
+
+summary(UNSR16$PREENG)
+```
+
+## Region of Resettlement
+```{r}
+UNSR16$HOSTREG<-ifelse(UNSR16$qn1k==98| UNSR16$qn1k==99, NA, UNSR16$qn1k)
+
+UNSR17$HOSTREG<-ifelse(UNSR17$qn1k==98| UNSR17$qn1k==99, NA, UNSR17$qn1k)
+
+UNSR18$HOSTREG<-ifelse(UNSR18$qn1k==98| UNSR18$qn1k==99, NA, UNSR18$qn1k)
+
+UNSR16$HOSTREG<- factor(UNSR16$HOSTREG,levels = c(1,2,3,4),labels = c("NorthEast", "South", "MidWest", "West"))
+
+UNSR17$HOSTREG<- factor(UNSR17$HOSTREG,levels = c(1,2,3,4),labels = c("NorthEast", "South", "MidWest", "West"))
+
+UNSR18$HOSTREG<- factor(UNSR18$HOSTREG,levels = c(1,2,3,4),labels = c("NorthEast", "South", "MidWest", "West"))
+
+UNSR16$HOSTREG<-relevel(UNSR16$HOSTREG, ref = 4)
+UNSR17$HOSTREG<-relevel(UNSR17$HOSTREG, ref = 4)
+UNSR18$HOSTREG<-relevel(UNSR18$HOSTREG, ref = 4)
+                    
+
+#Making NorthEaST Dummy
+UNSR16$NORTHEAST<- ifelse(UNSR16$HOSTREG==1, 1, 0)
+UNSR17$NORTHEAST<- ifelse(UNSR17$HOSTREG==1, 1, 0)
+UNSR18$NORTHEAST<- ifelse(UNSR18$HOSTREG==1, 1, 0)
+##Factorize
+UNSR16$NORTHEAST<- factor(UNSR16$NORTHEAST, levels = c(0,1), labels = c("Not Northeast", "Northeast"))
+
+UNSR17$NORTHEAST<- factor(UNSR17$NORTHEAST, levels = c(0,1), labels = c("Not Northeast", "Northeast"))
+
+UNSR18$NORTHEAST<- factor(UNSR18$NORTHEAST, levels = c(0,1), labels = c("Not Northeast", "Northeast"))
+#Making South Dummy
+UNSR16$SOUTH<- ifelse(UNSR16$HOSTREG==2, 1, 0)
+
+UNSR17$SOUTH<- ifelse(UNSR17$HOSTREG==2, 1, 0)
+
+UNSR18$SOUTH<- ifelse(UNSR18$HOSTREG==2, 1, 0)
+
+#Factoring South
+UNSR16$SOUTH<- factor(UNSR16$SOUTH, levels = c(0,1), labels = c("Not South", "South"))
+
+UNSR17$SOUTH<- factor(UNSR17$SOUTH, levels = c(0,1), labels = c("Not South", "South"))
+
+UNSR18$SOUTH<- factor(UNSR18$SOUTH, levels = c(0,1), labels = c("Not South", "South"))
+
+#Making MidWest dummy
+UNSR16$MIDWEST<- ifelse(UNSR16$HOSTREG==3, 1, 0)
+
+UNSR17$MIDWEST<- ifelse(UNSR17$HOSTREG==3, 1, 0)
+
+UNSR18$MIDWEST<- ifelse(UNSR18$HOSTREG==3, 1, 0)
+
+##Factorizing
+UNSR16$MIDWEST<- factor(UNSR16$MIDWEST, levels = c(0,1), labels = c("Not Midwest", "Midwest"))
+
+UNSR17$MIDWEST<- factor(UNSR17$MIDWEST, levels = c(0,1), labels = c("Not Midwest", "Midwest"))
+
+UNSR18$MIDWEST<- factor(UNSR18$MIDWEST, levels = c(0,1), labels = c("Not Midwest", "Midwest"))
+
+#Making West Dummy
+UNSR16$WEST<- ifelse(UNSR16$HOSTREG==4, 1, 0)
+
+UNSR17$WEST<- ifelse(UNSR17$HOSTREG==4, 1, 0)
+
+UNSR18$WEST<- ifelse(UNSR18$HOSTREG==4, 1, 0)
+
+#Factorize
+UNSR16$WEST<- factor(UNSR16$WEST, levels = c(0,1), labels = c("Not west", "West"))
+
+UNSR17$WEST<- factor(UNSR17$WEST, levels = c(0,1), labels = c("Not west", "West"))
+
+UNSR18$WEST<- factor(UNSR18$WEST, levels = c(0,1), labels = c("Not west", "West"))
+```
+
+## Current Enrollement in Eng Program 1=No, 2=Yes
+```{r}
+UNSR16$CURENGEN<- ifelse(UNSR16$qn4e==8|UNSR16$qn4e==9, NA, ifelse(UNSR16$qn4e==6, 2, UNSR16$qn4e))
+
+UNSR17$CURENGEN<- ifelse(UNSR17$qn4e==8|UNSR17$qn4e==9, NA, ifelse(UNSR17$qn4e==6, 2, UNSR17$qn4e))
+
+UNSR18$CURENGEN<- ifelse(UNSR18$qn4e==8|UNSR18$qn4e==9, NA, ifelse(UNSR18$qn4e==6, 2, UNSR18$qn4e))
+
+#Factorize
+UNSR16$CURENGEN<- factor(UNSR16$CURENGEN, levels = c(1,2), labels = c("No", "Yes"))
+
+UNSR17$CURENGEN<- factor(UNSR17$CURENGEN, levels = c(1,2), labels = c("No", "Yes"))
+
+UNSR18$CURENGEN<- factor(UNSR18$CURENGEN, levels = c(1,2), labels = c("No", "Yes"))
+
+
+```
+
+## Current Enrollment in Employment Training Program
+```{r}
+UNSR16$CUREMPT<-ifelse(UNSR16$qn24a==8|UNSR16$qn24a==9, NA, UNSR16$qn24a)
+
+UNSR17$CUREMPT<-ifelse(UNSR17$qn24a==8|UNSR17$qn24a==9, NA, UNSR17$qn24a)
+
+UNSR18$CUREMPT<-ifelse(UNSR18$qn24a==8|UNSR18$qn24a==9, NA, UNSR18$qn24a)
+
+#Factorizing
+
+UNSR16$CUREMPT<- factor(UNSR16$CUREMPT, levels = c(1,2), labels = c("No", "Yes"))
+
+UNSR17$CUREMPT<- factor(UNSR17$CUREMPT, levels = c(1,2), labels = c("No", "Yes"))
+
+UNSR18$CUREMPT<- factor(UNSR18$CUREMPT, levels = c(1,2), labels = c("No", "Yes"))
+
+```
+
+## English Proficiency Now Likert where 1=Very Well and 4=Not at all
+```{r}
+UNSR16$qn4b<- ifelse(UNSR16$qn4b==8|UNSR16$qn4b==9, NA, UNSR16$qn4b)
+UNSR16$CURENG<- abs(UNSR16$qn4b-5)
+
+UNSR17$qn4b<- ifelse(UNSR17$qn4b==8|UNSR17$qn4b==9, NA, UNSR17$qn4b)
+UNSR17$CURENG<- abs(UNSR17$qn4b-5)
+
+UNSR18$qn4b<- ifelse(UNSR18$qn4b==8|UNSR18$qn4b==9, NA, UNSR18$qn4b)
+UNSR18$CURENG<- abs(UNSR18$qn4b-5)
+
+#Factorizing
+UNSR16$CURENG<- factor(UNSR16$CURENG,levels = c(1,2,3,4), labels = c("Not at All", "Not Well", "Well", "Very Well"), ordered = F)
+
+UNSR17$CURENG<- factor(UNSR17$CURENG,levels = c(1,2,3,4), labels = c("Not at All", "Not Well", "Well", "Very Well"), ordered = F)
+
+
+UNSR18$CURENG<- factor(UNSR18$CURENG,levels = c(1,2,3,4), labels = c("Not at All", "Not Well", "Well", "Very Well"), ordered = F)
+
+```
+
+
+## Sex 1=Male, 2=Female
+```{r}
+UNSR16$SEX<- ifelse(UNSR16$qn1f==8|UNSR16$qn1f==9, NA, UNSR16$qn1f)
+
+UNSR17$SEX<- ifelse(UNSR17$qn1f==8|UNSR17$qn1f==9, NA, UNSR17$qn1f)
+
+UNSR18$SEX<- ifelse(UNSR18$qn1f==8|UNSR18$qn1f==9, NA, UNSR18$qn1f)
+
+# Factorize
+UNSR16$SEX<- factor(UNSR16$SEX, levels = c(1,2),labels = c("Male", "Female"))
+
+UNSR17$SEX<- factor(UNSR17$SEX, levels = c(1,2),labels = c("Male", "Female"))
+
+
+UNSR18$SEX<- factor(UNSR18$SEX, levels = c(1,2),labels = c("Male", "Female"))
+
+```
+
+# Age 
+```{r}
+UNSR16$AGE<- ifelse(UNSR16$qn1d==999|UNSR16$qn1d==998, NA, UNSR16$qn1d)
+
+UNSR17$AGE<- ifelse(UNSR17$qn1d==999|UNSR17$qn1d==998, NA, UNSR17$qn1d)
+
+UNSR18$AGE<- ifelse(UNSR18$qn1d==999|UNSR18$qn1d==998, NA, UNSR18$qn1d)
+
+```
+
+## How many people in the household
+```{r}
+summary(UNSR16$numppl)
+
+```
+
+## Marital Status 1=MArried, 2=Divorced/Seperated/widowed, 3=Never MArried, 4=Other, 5= R is a Child
+```{r}
+
+##2016
+UNSR16$MARSTAT<-ifelse(UNSR16$qn1c== 8|UNSR16$qn1c== 9, NA, 
+                       ifelse(UNSR16$qn1c== 2|UNSR16$qn1c== 3|UNSR16$qn1c== 5, 2, 
+                              ifelse(UNSR16$qn1c== 4, 3,
+                                     ifelse(UNSR16$qn1c== 7, 4,
+                                            ifelse(UNSR16$qn1c== 6, 5, UNSR16$qn1c)))))
+##2017
+UNSR17$MARSTAT<-ifelse(UNSR17$qn1c== 8|UNSR17$qn1c== 9|UNSR17$qn1c== 0, NA, 
+                       ifelse(UNSR17$qn1c== 2|UNSR17$qn1c== 3|UNSR17$qn1c== 5, 2, 
+                              ifelse(UNSR17$qn1c== 4, 3,
+                                     ifelse(UNSR17$qn1c== 7, 4,
+                                            ifelse(UNSR17$qn1c== 6, 5, UNSR17$qn1c)))))
+##2018
+UNSR18$MARSTAT<-ifelse(UNSR18$qn1c== 8|UNSR18$qn1c== 9, NA, 
+                       ifelse(UNSR18$qn1c== 2|UNSR18$qn1c== 3|UNSR18$qn1c== 5, 2, 
+                              ifelse(UNSR18$qn1c== 4, 3,
+                                     ifelse(UNSR18$qn1c== 7, 4,
+                                            ifelse(UNSR18$qn1c== 6, 5, UNSR18$qn1c)))))
+
+
+# FActorizing
+
+UNSR16$MARSTAT<- factor(UNSR16$MARSTAT, levels = c(1,2,3,4,5), labels = c("Married", "Divorced/Seperated/Widowed", "Never Married", "Other", "R is a child"))
+
+UNSR17$MARSTAT<- factor(UNSR17$MARSTAT, levels = c(1,2,3,4,5), labels = c("Married", "Divorced/Seperated/Widowed", "Never Married", "Other", "R is a child"))
+
+UNSR18$MARSTAT<- factor(UNSR18$MARSTAT, levels = c(1,2,3,4,5), labels = c("Married", "Divorced/Seperated/Widowed", "Never Married", "Other", "R is a child"))
+```
+
+## Presence of Dependents (People that have a condition or reason that limits the amount or kind of work they can do?) 1=no, 2=yes
+```{r}
+
+#Binaries for Individuals
+UNASR16$DEPEND<- ifelse(UNASR16$qn28a== 8|UNASR16$qn28a== 9, NA, 
+                       ifelse(UNASR16$qn28a== 1, 0, 
+                              ifelse(UNASR16$qn28a== 2, 1, UNASR16$qn28a)))
+#Factorize
+UNASR16$DEPEND<- factor(UNASR16$DEPEND, levels = c(0,1), labels = c("No Dependents", "Has Dependents"))
+
+
+#2017
+
+UNASR17$DEPEND<- ifelse(UNASR17$qn28a== 8|UNASR17$qn28a== 9, NA, 
+                       ifelse(UNASR17$qn28a== 1, 0, 
+                              ifelse(UNASR17$qn28a== 2, 1, UNASR17$qn28a)))
+
+UNASR17$DEPEND<- factor(UNASR17$DEPEND, levels = c(0,1), labels = c("No Dependents", "Has Dependents"))
+#2018
+UNASR18$DEPEND<- ifelse(UNASR18$qn28a== 8|UNASR18$qn28a== 9, NA, 
+                       ifelse(UNASR18$qn28a== 1, 0, 
+                              ifelse(UNASR18$qn28a== 2, 1, UNASR18$qn28a)))
+
+UNASR18$DEPEND<- factor(UNASR18$DEPEND, levels = c(0,1), labels = c("No Dependents", "Has Dependents"))
+
+#Binaries for Households
+##2016
+UNSR16$DEPEND<- ifelse(UNSR16$qn28a== 8|UNSR16$qn28a== 9, NA, 
+                       ifelse(UNSR16$qn28a== 1, 0, 
+                              ifelse(UNSR16$qn28a== 2, 1, UNSR16$qn28a)))
+
+#2017
+
+UNSR17$DEPEND<- ifelse(UNSR17$qn28a== 8|UNSR17$qn28a== 9, NA, 
+                       ifelse(UNSR17$qn28a== 1, 0, 
+                              ifelse(UNSR17$qn28a== 2, 1, UNSR17$qn28a)))
+#2018
+UNSR18$DEPEND<- ifelse(UNSR18$qn28a== 8|UNSR18$qn28a== 9, NA, 
+                       ifelse(UNSR18$qn28a== 1, 0, 
+                              ifelse(UNSR18$qn28a== 2, 1, UNSR18$qn28a)))
+
+## Number of Dependents in household
+###2016
+a<-table(UNASR16$hhid, UNASR16$DEPEND)
+UNSR16$DEPENDS<- as.vector(a[,2])
+
+####2017
+b<-table(UNASR17$hhid, UNASR17$DEPEND)
+UNSR17$DEPENDS<- as.vector(b[,2])
+####2018
+c<-table(UNASR18$hhid, UNASR18$DEPEND)
+UNSR18$DEPENDS<- as.vector(c[,2])
+
+##### Use number of dependents to answer if there are dependents in the household (eliminates a few missing values)
+UNSR16$DEPEND<- ifelse(UNSR16$DEPENDS==0, 0, UNSR16$DEPEND)
+
+UNSR17$DEPEND<- ifelse(UNSR17$DEPENDS==0, 0, UNSR17$DEPEND)
+
+UNSR18$DEPEND<- ifelse(UNSR18$DEPENDS==0, 0, UNSR18$DEPEND)
+
+##Factorize
+UNSR16$DEPEND<- factor(UNSR16$DEPEND, levels = c(0,1), labels = c("No Dependents", "Dependents"))
+
+UNSR17$DEPEND<- factor(UNSR17$DEPEND, levels = c(0,1), labels = c("No Dependents", "Dependents"))
+
+UNSR18$DEPEND<- factor(UNSR18$DEPEND, levels = c(0,1), labels = c("No Dependents", "Dependents"))
+```
+
+## Year of the Survey
+
+```{r}
+UNSR16$SVYYR<-2016
+UNSR17$SVYYR<-2017
+UNSR18$SVYYR<-2018
+```
+
+## MAKING DEPENDENCE ON PUBLIC ASSISTANCE PROGRAMS
+```{r}
+#Cleaning Food Stamps
+UNSR16<-UNSR16%>% mutate(Foodstamps= case_when(qn30a==1~0,
+                                               qn30a==2~1,
+                                               qn30a==8~as.numeric(NA),
+                                               qn30a==9~as.numeric(NA)))
+
+UNSR17<-UNSR17%>% mutate(Foodstamps= case_when(qn30a==1~0,
+                                               qn30a==2~1,
+                                               qn30a==8~as.numeric(NA),
+                                               qn30a==9~as.numeric(NA)))
+
+UNSR18<-UNSR18%>% mutate(Foodstamps= case_when(qn30a==1~0,
+                                               qn30a==2~1,
+                                               qn30a==8~as.numeric(NA),
+                                               qn30a==9~as.numeric(NA)))
+#Factorizing
+UNSR16$Foodstamps<-factor(UNSR16$Foodstamps,levels = c(0,1), labels = c(" Not On Foodstamps", "On foodstamps"))
+
+UNSR17$Foodstamps<-factor(UNSR17$Foodstamps,levels = c(0,1), labels = c(" Not On Foodstamps", "On foodstamps"))
+
+UNSR18$Foodstamps<-factor(UNSR18$Foodstamps,levels = c(0,1), labels = c(" Not On Foodstamps", "On foodstamps"), ordered = T)
+#Cleaning TANF
+UNSR16<-UNSR16%>% mutate(TANF= case_when(qn31a==1~0,
+                                               qn31a==2~1,
+                                               qn31a==8~as.numeric(NA),
+                                               qn31a==9~as.numeric(NA)))
+
+UNSR17<-UNSR17%>% mutate(TANF= case_when(qn31a==1~0,
+                                               qn31a==2~1,
+                                               qn31a==8~as.numeric(NA),
+                                               qn31a==9~as.numeric(NA)))
+
+UNSR18<-UNSR18%>% mutate(TANF= case_when(qn31a==1~0,
+                                               qn31a==2~1,
+                                               qn31a==8~as.numeric(NA),
+                                               qn31a==9~as.numeric(NA)))
+
+#Factorizing
+UNSR16$TANF<-factor(UNSR16$TANF,levels = c(0,1), labels = c(" Not On TANF", "On TANF"))
+
+UNSR17$TANF<-factor(UNSR17$TANF,levels = c(0,1), labels = c(" Not On TANF", "On TANF"))
+
+UNSR18$TANF<-factor(UNSR18$TANF,levels = c(0,1), labels = c(" Not On TANF", "On TANF"))
+
+#Cleaning RCA
+UNSR16<-UNSR16%>% mutate(RCA= case_when(qn32a==1~0,
+                                               qn32a==2~1,
+                                               qn32a==8~as.numeric(NA),
+                                               qn32a==9~as.numeric(NA)))
+
+UNSR17<-UNSR17%>% mutate(RCA= case_when(qn32a==1~0,
+                                               qn32a==2~1,
+                                               qn32a==8~as.numeric(NA),
+                                               qn32a==9~as.numeric(NA)))
+
+UNSR18<-UNSR18%>% mutate(RCA= case_when(qn32a==1~0,
+                                               qn32a==2~1,
+                                               qn32a==8~as.numeric(NA),
+                                               qn32a==9~as.numeric(NA)))
+
+#Factorizing
+UNSR16$RCA<-factor(UNSR16$RCA,levels = c(0,1), labels = c(" Not On RCA", "On RCA"))
+
+UNSR17$RCA<-factor(UNSR17$RCA,levels = c(0,1), labels = c(" Not On RCA", "On RCA"))
+
+UNSR18$RCA<-factor(UNSR18$RCA,levels = c(0,1), labels = c(" Not On RCA", "On RCA"))
+
+# Cleaning SSI
+UNSR16<-UNSR16%>% mutate(SSI= case_when(qn33a==1~0,
+                                               qn33a==2~1,
+                                               qn33a==8~as.numeric(NA),
+                                               qn33a==9~as.numeric(NA)))
+UNSR17<-UNSR17%>% mutate(SSI= case_when(qn32a==1~0,
+                                               qn33a==2~1,
+                                               qn33a==8~as.numeric(NA),
+                                               qn33a==9~as.numeric(NA)))
+UNSR18<-UNSR18%>% mutate(SSI= case_when(qn32a==1~0,
+                                               qn33a==2~1,
+                                               qn33a==8~as.numeric(NA),
+                                               qn33a==9~as.numeric(NA)))
+
+#Factorizing
+UNSR16$SSI<-factor(UNSR16$SSI,levels = c(0,1), labels = c(" Not On SSI", "On SSI"))
+
+UNSR17$SSI<-factor(UNSR17$SSI,levels = c(0,1), labels = c(" Not On SSI", "On SSI"))
+
+UNSR18$SSI<-factor(UNSR18$SSI,levels = c(0,1), labels = c(" Not On SSI", "On SSI"))
+
+#Cleaning General Assistance
+UNSR16<-UNSR16%>% mutate(GA= case_when(qn34a==1~0,
+                                               qn34a==2~1,
+                                               qn34a==8~as.numeric(NA),
+                                               qn34a==9~as.numeric(NA)))
+
+UNSR17<-UNSR17%>% mutate(GA= case_when(qn34a==1~0,
+                                               qn34a==2~1,
+                                               qn34a==8~as.numeric(NA),
+                                               qn34a==9~as.numeric(NA)))
+
+UNSR18<-UNSR18%>% mutate(GA= case_when(qn34a==1~0,
+                                               qn34a==2~1,
+                                               qn34a==8~as.numeric(NA),
+                                               qn34a==9~as.numeric(NA)))
+
+#Factorizing
+UNSR16$GA<-factor(UNSR16$GA,levels = c(0,1), labels = c(" Not On GA", "On GA"))
+
+UNSR17$GA<-factor(UNSR17$GA,levels = c(0,1), labels = c(" Not On GA", "On GA"))
+
+UNSR18$GA<-factor(UNSR18$GA,levels = c(0,1), labels = c(" Not On GA", "On GA"))
+
+
+#Cleaning Religious/Sponsor/VolAgency/"Most Affected Area" cash assistance
+UNSR16<-UNSR16%>% mutate(Miscash= case_when(qn35a==1~0,
+                                               qn35a==2~1,
+                                               qn35a==8~as.numeric(NA),
+                                               qn35a==9~as.numeric(NA)))
+
+UNSR17<-UNSR17%>% mutate(Miscash= case_when(qn35a==1~0,
+                                               qn35a==2~1,
+                                               qn35a==8~as.numeric(NA),
+                                               qn35a==9~as.numeric(NA)))
+
+UNSR18<-UNSR18%>% mutate(Miscash= case_when(qn35a==1~0,
+                                               qn35a==2~1,
+                                               qn35a==8~as.numeric(NA),
+                                               qn35a==9~as.numeric(NA)))
+
+#Factorizing
+UNSR16$Miscash<-factor(UNSR16$Miscash,levels = c(0,1), labels = c(" Not On Miscash", "On Miscash"))
+
+UNSR17$Miscash<-factor(UNSR17$Miscash,levels = c(0,1), labels = c(" Not On Miscash", "On Miscash"))
+
+UNSR18$Miscash<-factor(UNSR18$Miscash,levels = c(0,1), labels = c(" Not On Miscash", "On Miscash"))
+# Public Housing
+
+UNSR16<-UNSR16%>% mutate(PubHo= case_when(qn38c==1~0,
+                                               qn38c==2~1,
+                                               qn38c==8~as.numeric(NA),
+                                               qn38c==9~as.numeric(NA)))
+
+UNSR17<-UNSR17%>% mutate(PubHo= case_when(qn38c==1~0,
+                                               qn38c==2~1,
+                                               qn38c==8~as.numeric(NA),
+                                               qn38c==9~as.numeric(NA)))
+
+UNSR18<-UNSR18%>% mutate(PubHo= case_when(qn38c==1~0,
+                                               qn38c==2~1,
+                                               qn38c==8~as.numeric(NA),
+                                               qn38c==9~as.numeric(NA)))
+
+#Factorizing
+UNSR16$PubHo<-factor(UNSR16$PubHo,levels = c(0,1), labels = c(" Not On PubHo", "On PubHo"))
+
+UNSR17$PubHo<-factor(UNSR17$PubHo,levels = c(0,1), labels = c(" Not On PubHo", "On PubHo"))
+
+UNSR18$PubHo<-factor(UNSR18$PubHo,levels = c(0,1), labels = c(" Not On PubHo", "On PubHo"))
+## Making The number of public assistance programs a household uses. 
+UNSR16$FD <- (as.numeric(UNSR16$Foodstamps)-1)+(as.numeric(UNSR16$TANF)-1)+(as.numeric(UNSR16$RCA)-1)+(as.numeric(UNSR16$SSI)-1)+(as.numeric(UNSR16$GA)-1)+(as.numeric(UNSR16$Miscash)-1)+(as.numeric(UNSR16$PubHo)-1)
+
+UNSR17$FD <- (as.numeric(UNSR17$Foodstamps)-1)+(as.numeric(UNSR17$TANF)-1)+(as.numeric(UNSR17$RCA)-1)+(as.numeric(UNSR17$SSI)-1)+(as.numeric(UNSR17$GA)-1)+(as.numeric(UNSR17$Miscash)-1)+(as.numeric(UNSR17$PubHo)-1)
+
+UNSR18$FD <- as.numeric(UNSR18$Foodstamps)+as.numeric(UNSR18$TANF)+as.numeric(UNSR18$RCA)+as.numeric(UNSR18$SSI)+as.numeric(UNSR18$GA)+as.numeric(UNSR18$Miscash)+as.numeric(UNSR18$PubHo)
+
+```
+
+## Peeling off unused variables (No FD measure)
+```{r}
+which(colnames(UNSR16)== "URECOSEC")
+
+
+which(colnames(UNSR17)== "URECOSEC")
+
+
+which(colnames(UNSR18)== "URECOSEC")
+
+
+
+which(colnames(UNSR16)== "TILLJOB")
+which(colnames(UNSR16)== "FD")
+
+#include 181:220 for the household weights
+temp16<- UNSR16[,c(1,3,179,333:366)]
+which(colnames(UNSR17)== "TILLJOB")
+which(colnames(UNSR17)== "FD")
+
+#@include 140:159 for the household replicant weights
+temp17<- UNSR17[,c(1,3,138,253:286)]
+which(colnames(UNSR18)== "TILLJOB")
+which(colnames(UNSR18)== "FD")
+
+#include 154:180 for the household replicant weights. 
+temp18<- UNSR18[,c(1,3,152,281:314)]
+```
+### Weighting the Data and removing the weights
+```{r}
+wtemp16<- svydesign(ids=~hhid, weights =~Weight_household,data = temp16 )
+wtemp17<- svydesign(ids=~hhid, weights =~Weight_household,data = temp17 )
+wtemp18<- svydesign(ids=~hhid, weights =~Weight_household,data = temp18 )
+
+
+```
+
+#### making the pooled and weighted dataset
+```{r}
+compare_df_cols(temp16, temp17, temp18)
+POOLED<- base::rbind(temp16,temp17, temp18) 
+wPOOLED<- svydesign(ids=~hhid, weights =~Weight_household,data = POOLED )
+```
+## Imputating missing data
+
+### Getting everything ready to impute on reasonable values and identifying the best method for imputing each data type
+
+
+```{r}
+set.seed(42)
+
+imp16<- mice(temp16, predictorMatrix = quickpred(data = temp16, exclude =c("Weight_household","URECOSEC","hhid","MARSTAT", "WHENJOB", "WHENARRIVE", "TILLJOB", "ECOSECTOR","URECOSEC", "ORIGIN", "NORTHEAST", "SOUTH", "MIDWEST", "WEST","DEPEND", "SVYYR","Foodstamps", "TANF", "RCA", "SSI", "GA", "Miscash", "Pubho", "FI") ),m = 21)
+
+
+imp17<- mice(temp17, predictorMatrix = quickpred(data = temp17, exclude =c("Weight_household","URECOSEC","hhid","MARSTAT", "WHENJOB", "WHENARRIVE", "TILLJOB", "ECOSECTOR","URECOSEC", "ORIGIN", "NORTHEAST", "SOUTH", "MIDWEST", "WEST","DEPEND", "SVYYR","Foodstamps", "TANF", "RCA", "SSI", "GA", "Miscash", "Pubho", "FI") ),m = 21)
+
+imp18<- mice(temp18, predictorMatrix = quickpred(data = temp18, exclude =c("Weight_household","URECOSEC","hhid","MARSTAT", "WHENJOB", "WHENARRIVE", "TILLJOB", "ECOSECTOR","URECOSEC", "ORIGIN", "NORTHEAST", "SOUTH", "MIDWEST", "WEST","DEPEND", "SVYYR","Foodstamps", "TANF", "RCA", "SSI", "GA", "Miscash", "Pubho", "FI") ),m = 21)
+
+impPOOLED<- mice(POOLED, predictorMatrix = quickpred(data = temp18, exclude =c("Weight_household","hhid","MARSTAT","URECOSEC", "WHENJOB", "WHENARRIVE", "TILLJOB", "ECOSECTOR","URECOSEC", "ORIGIN", "NORTHEAST", "SOUTH", "MIDWEST", "WEST","DEPEND", "SVYYR","Foodstamps", "TANF", "RCA", "SSI", "GA", "Miscash", "Pubho", "FI") ),m = 21)
+imp16$loggedEvents
+```
+
+
+## assessing imputed dataframes 
+```{r}
+imp16$method
+```
+
+# Descriptive Statistics
+## Pre-Migration Economic Sector
+```{r error=TRUE}
+library(DescTools)
+Desc(temp16$ECOSECTOR)
+Desc(temp17$ECOSECTOR)
+Desc(temp18$ECOSECTOR)
+Desc(POOLED$ECOSECTOR)
+```
+
+
+## Working Hours
+
+
+```{r}
+summary(temp16$WEEKHOUR)
+summary(temp17$WEEKHOUR)
+summary(temp18$WEEKHOUR)
+```
+##Region of Resettlment
+
+```{r error=TRUE}
+Desc(temp16$HOSTREG)
+
+Desc(temp17$HOSTREG)
+
+Desc(temp18$HOSTREG)
+
+Desc(POOLED$HOSTREG)
+
+```
+
+## National Origin
+```{r}
+
+Freq(temp16$ORIGIN)
+Freq(temp17$ORIGIN)
+Freq(temp18$ORIGIN)
+Freq(POOLED$ORIGIN)
+```
+
+## Current Enrollement in English Training Programs
+
+```{R}
+Freq(temp16$CURENGEN)
+
+Freq(temp17$CURENGEN)
+
+Freq(temp18$CURENGEN)
+
+Freq(POOLED$CURENGEN)
+
+```
+
+## Time to First Job
+```{r}
+mean(temp16$TILLJOBb, na.rm=T)
+mean(temp17$TILLJOBb, na.rm=T)
+mean(temp18$TILLJOBb, na.rm=T)
+mean(POOLED$TILLJOBb, na.rm=T)
+
+sd(temp16$TILLJOBb, na.rm=T)
+sd(temp17$TILLJOBb, na.rm=T)
+sd(temp18$TILLJOBb, na.rm=T)
+sd(POOLED$TILLJOBb, na.rm=T)
+```
+
+## Current Enrollement in Employment training programs
+
+
+```{r}
+Freq(temp16$CUREMPT)
+Freq(temp17$CUREMPT)
+Freq(temp18$CUREMPT)
+Freq(POOLED$CUREMPT)
+
+```
+
+## Current English Proficiency
+
+```{r}
+Freq(temp16$CURENG)
+Freq(temp17$CURENG)
+Freq(temp18$CURENG)
+Freq(POOLED$CURENG)
+sd(as.numeric(POOLED$CURENG), na.rm=T)
+```
+
+## Sex
+
+```{r}
+
+Freq(temp16$SEX)
+Freq(temp17$SEX)
+Freq(temp18$SEX)
+Freq(POOLED$SEX)
+```
+
+## Marital Status
+
+```{r}
+Freq(temp16$MARSTAT)
+
+Freq(temp17$MARSTAT)
+
+Freq(temp18$MARSTAT)
+
+Freq(POOLED$MARSTAT)
+```
+
+## Number of Dependents in household
+
+```{r}
+summary(temp16$DEPENDS)
+sd(temp16$DEPENDS)
+summary(temp17$DEPENDS)
+sd(temp17$DEPENDS)
+summary(temp18$DEPENDS)
+sd(temp18$DEPENDS)
+summary(POOLED$DEPENDS)
+sd(POOLED$DEPENDS)
+
+```
+
+## Years of Education
+
+```{r}
+summary(temp16$EDUC)
+sd(temp16$EDUC, na.rm=T)
+```
+## Context Variable   
+```{r}
+summary(temp16$CONTEXT)
+sd(temp16$CONTEXT, na.rm= T)
+
+summary(temp17$CONTEXT)
+sd(temp17$CONTEXT, na.rm= T)
+
+summary(temp18$CONTEXT)
+sd(temp18$CONTEXT, na.rm= T)
+
+summary(POOLED$CONTEXT)
+sd(POOLED$CONTEXT, na.rm= T)
+```
+
+## PreMigration English Proficiency
+
+
+```{r}
+
+summary(temp16$PREENG)
+summary(temp16$CURENG)
+```
+
+# Analysis with the imputed models
+
+##First FI Pooled "Basics" Nest
+```{r}
+basicsPOOLED<- with(impPOOLED, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS, family = "binomial",design = wPOOLED))
+BPoolpool<-pool(basicsPOOLED)
+summary(BPoolpool)
+```
+
+
+
+
+## Second Pre Context Nest
+```{r}
+pcpool<- with(impPOOLED, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR, family = "binomial",design =wPOOLED ))
+preconPOOLED<- pool(pcpool)
+summary(preconPOOLED)
+```
+
+
+## Third Post Context Nest
+```{r}
+pocopool<- with(impPOOLED, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR, family = "binomial", design = wPOOLED))
+posconPOOLED<- pool(pocopool)
+summary(posconPOOLED)
+```
+
+
+## Fourth, Add Pre-Human Capital Vars
+```{r}
+
+prehupool<- with(impPOOLED, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+PREENG , family = "binomial", design = wPOOLED))
+prehuPOOLED<- pool(prehupool)
+summary(prehuPOOLED)
+
+```
+
+
+#Fith, the Final Model (Use this model for intra-model prediction comparisons)
+```{r}
+
+pohupool<- with(impPOOLED, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+relevel(URECOSEC, ref=2)+TILLJOB+WEEKHOUR , family = "binomial", design = wPOOLED))
+posthuPOOLED<- pool(pohupool)
+summary(posthuPOOLED)
+```
+
+##Making the prediction dataframe.
+### AIC AND BIC
+
+```{r}
+#comparing AIC's in both models I already have the context +Basics model
+posconPOOLED$glanced
+POOLED$URECOSEC<-relevel(POOLED$URECOSEC, ref=2)
+#making the basics+human capital model
+compareFIpool<- with(impPOOLED, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+URECOSEC+TILLJOBb , family = "binomial", design = wPOOLED))
+compareFIHCPOOLED<- pool(compareFIpool)
+compareFIHCPOOLED$glanced
+#The human capital one has the lower AIC and BIC
+```
+
+### Non-Miced predictions
+```{r}
+modela <- svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+URECOSEC+TILLJOBb , family = "binomial", design = wPOOLED)
+
+
+#Making the hypothetical dataframe for a maximally advantaged contextual person. 
+maxconpred <- data.frame(WHENARRIVE=factor(3), SEX="Male", AGE=39.7, numppl=3, MARSTAT="Never Married", TILLJOB=1, EDUC=12, ECOSECTOR="Professional", URECOSEC="Retail/Sales", ORIGIN="Cuba", PREENG="Not Well", HOSTREG="South", CURENGEN="No", CUREMPT="No", CURENG="Well", DEPENDS=1, SVYYR=2018, WEEKHOUR=38.33, TILLJOBb=1)
+
+
+maxhumpred <- data.frame(WHENARRIVE=factor(3), SEX="Male", AGE=39.7, numppl=3, MARSTAT="Never Married", TILLJOB=1, EDUC=20, ECOSECTOR="Other", URECOSEC= "Professional/ED/Health/SocialServices", ORIGIN="Iraq", PREENG="Very Well", HOSTREG="West", CURENGEN="No", CUREMPT="No", CURENG="Very Well", DEPENDS=1, SVYYR=2016, WEEKHOUR=38.33, TILLJOBb=1)
+
+predict(modela, newdata =maxconpred, type = "response")
+
+predict(modela, newdata =maxhumpred, type = "response")
+```
+
+# 2016 FI Models 
+## Basicis Model
+```{r}
+basics16<- with(imp16, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS, family = "binomial",design = wtemp16))
+B16pool<-pool(basics16)
+summary(B16pool)
+
+
+```
+
+## Second Pre Context Nest
+```{r}
+pc16<- with(imp16, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR, family = "binomial",design =wtemp16 ))
+precon16<- pool(pc16)
+summary(precon16)
+```
+
+## Third Post Context Nest
+```{r}
+poco16<- with(imp16, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR, family = "binomial", design = wtemp16))
+poscon16<- pool(poco16)
+summary(poscon16)
+```
+
+## Fourth, Add Pre-Human Capital Vars
+```{r}
+
+prehu16<- with(imp16, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+PREENG , family = "binomial", design = wtemp16))
+prehu16<- pool(prehu16)
+summary(prehu16)
+
+```
+
+#Fith, the Final Model (Use this model for intra-model prediction comparisons)
+```{r}
+
+pohu16<- with(imp16, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+EDUC+CONTEXT+PREENG+ CURENGEN+CUREMPT+CURENG+relevel(URECOSEC, ref=2)+ TILLJOBb , family = "binomial", design = wtemp16))
+posthu16<- pool(pohu16)
+summary(posthu16)
+```
+
+# 2017 FI Models 
+## Basicis Model
+```{r}
+basics17<- with(imp17, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS, family = "binomial",design = wtemp17))
+B17pool<-pool(basics17)
+summary(B17pool)
+
+
+```
+
+## Second Pre Context Nest
+```{r}
+pc17<- with(imp17, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR, family = "binomial",design =wtemp17 ))
+precon17<- pool(pc17)
+summary(precon17)
+```
+
+## Third Post Context Nest
+```{r}
+poco17<- with(imp17, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR, family = "binomial", design = wtemp17))
+poscon17<- pool(poco17)
+summary(poscon17)
+```
+
+## Fourth, Add Pre-Human Capital Vars
+```{r}
+
+prehu17<- with(imp17, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+PREENG , family = "binomial", design = wtemp17))
+prehu17<- pool(prehu17)
+summary(prehu17)
+
+```
+
+#Fith, the Final Model (Use this model for intra-model prediction comparisons)
+```{r}
+
+pohu17<- with(imp17, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+HOSTREG+relevel(URECOSEC, ref=2)+EDUC+CONTEXT+ECOSECTOR+PREENG+ CURENGEN+CUREMPT+CURENG+ TILLJOBb , family = "binomial", design = wtemp17))
+posthu17<- pool(pohu17)
+summary(posthu17)
+```
+
+# 2018 FI Models 
+## Basicis Model
+```{r}
+basics18<- with(imp18, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS, family = "binomial",design = wtemp18))
+B18pool<-pool(basics18)
+summary(B18pool)
+
+
+```
+
+## Second Pre Context Nest
+```{r}
+pc18<- with(imp18, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR, family = "binomial",design =wtemp18 ))
+precon18<- pool(pc18)
+summary(precon18)
+```
+
+## Third Post Context Nest
+```{r}
+poco18<- with(imp18, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR, family = "binomial", design = wtemp18))
+poscon18<- pool(poco18)
+summary(poscon18)
+```
+
+## Fourth, Add Pre-Human Capital Vars
+```{r}
+
+prehu18<- with(imp18, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+PREENG , family = "binomial", design = wtemp18))
+prehu18<- pool(prehu18)
+summary(prehu18)
+
+```
+
+#Fith, the Final Model (Use this model for intra-model prediction comparisons)
+```{r}
+
+pohu18<- with(imp18, svyglm(FI~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+HOSTREG+relevel(URECOSEC, ref=2)+EDUC+CONTEXT+ECOSECTOR+PREENG+ CURENGEN+CUREMPT+CURENG+ TILLJOBb , family = "binomial", design = wtemp18))
+posthu18<- pool(pohu18)
+summary(posthu18)
+```
+
+#  TIme to First Job 
+
+## First FI Pooled "Basics" Nest
+```{r}
+basicsTJPOOLED<- with(impPOOLED, svyglm(TILLJOB~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS, family = "binomial",design = wPOOLED))
+BPoolTJpool<-pool(basicsTJPOOLED)
+summary(BPoolTJpool)
+```
+
+
+## Second Pre Context Nest
+```{r}
+pcTJpool<- with(impPOOLED,svyglm(TILLJOB~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR, family = "binomial",design =wPOOLED ))
+preconTJPOOLED<- pool(pcTJpool)
+summary(preconTJPOOLED)
+```
+
+
+## Third Post Context Nest
+```{r}
+pocoTJpool<- with(impPOOLED, svyglm(TILLJOB~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR, family = "binomial", design = wPOOLED))
+posconTJPOOLED<- pool(pocoTJpool)
+summary(posconTJPOOLED)
+```
+
+
+## Fourth, Add Pre-Human Capital Vars (Final because Till job may be before current variables)
+```{r}
+
+prehuTJpool<- with(impPOOLED, svyglm(TILLJOB~ SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+relevel(URECOSEC, ref=2)+PREENG, family = "binomial", design = wPOOLED))
+prehuTJPOOLED<- pool(prehuTJpool)
+summary(prehuTJPOOLED)
+```
+
+# The comparisons between contexts and human capital
+```{r}
+posconTJPOOLED$glanced
+
+compareTJpool<- with(impPOOLED, svyglm(TILLJOB~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+URECOSEC+TILLJOBb , family = "binomial", design = wPOOLED))
+compareTJHCPOOLED<- pool(compareTJpool)
+compareTJHCPOOLED$glanced
+## Contexts are better at the AIC and BIC measures, but what about Predicted probabilities?
+```
+### PRedicted Probabilities
+```{r}
+modelb <- svyglm(TILLJOB~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+URECOSEC+TILLJOBb , family = "binomial", design = wPOOLED)
+
+
+#Making the hypothetical dataframe for a maximally advantaged contextual person. 
+maxconpred <- data.frame(WHENARRIVE=factor(3), SEX="Male", AGE=39.7, numppl=3, MARSTAT="Never Married", TILLJOB=1, EDUC=12, ECOSECTOR="Professional", URECOSEC="Retail/Sales", ORIGIN="Cuba", PREENG="Not Well", HOSTREG="South", CURENGEN="No", CUREMPT="No", CURENG="Well", DEPENDS=1, SVYYR=2018, WEEKHOUR=38.33, TILLJOBb=1)
+
+
+maxhumpred <- data.frame(WHENARRIVE=factor(3), SEX="Male", AGE=39.7, numppl=3, MARSTAT="Never Married", TILLJOB=1, EDUC=20, ECOSECTOR="Other", URECOSEC= "Professional/ED/Health/SocialServices", ORIGIN="Iraq", PREENG="Very Well", HOSTREG="West", CURENGEN="No", CUREMPT="No", CURENG="Very Well", DEPENDS=1, SVYYR=2016, WEEKHOUR=38.33, TILLJOBb=1)
+
+predict(modelb, newdata =maxconpred, type = "response")
+
+predict(modelb, newdata =maxhumpred, type = "response")
+```
+# Log of Weekly Working Hours
+
+##First FI Pooled "Basics" Nest
+```{r}
+WHbasicsPOOLED<- with(impPOOLED, svyglm(log(WEEKHOUR +1089/40) ~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS,design = wPOOLED))
+WHBPoolpool<-pool(WHbasicsPOOLED)
+summary(WHBPoolpool)
+```
+
+
+
+
+## Second Pre Context Nest
+```{r}
+WHpcpool<- with(impPOOLED, svyglm(log(WEEKHOUR +1089/40)~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR,design =wPOOLED ))
+WHpreconPOOLED<- pool(WHpcpool)
+summary(WHpreconPOOLED)
+```
+
+
+## Third Post Context Nest
+```{r}
+WHpocopool<- with(impPOOLED, svyglm(log(WEEKHOUR +1089/40)~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR, design = wPOOLED))
+WHposconPOOLED<- pool(WHpocopool)
+summary(WHposconPOOLED)
+```
+
+
+## Fourth, Add Pre-Human Capital Vars
+```{r}
+
+WHprehupool<- with(impPOOLED, svyglm(log(WEEKHOUR +1089/40)~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+PREENG, design = wPOOLED))
+WHprehuPOOLED<- pool(WHprehupool)
+summary(WHprehuPOOLED)
+
+```
+
+
+#Fith, the Final Model (Use this model for intra-model prediction comparisons)
+```{r}
+
+WHpohupool<- with(impPOOLED, svyglm(log(WEEKHOUR +1089/40)~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+ORIGIN+ECOSECTOR+HOSTREG+SVYYR+EDUC+CONTEXT+PREENG+CURENGEN+CUREMPT+CURENG+relevel(URECOSEC, ref=2)+TILLJOB, design = wPOOLED))
+WHposthuPOOLED<- pool(WHpohupool)
+summary(WHposthuPOOLED)
+```
+
+# Comparing weekly working hours across maximal individuals
+
+```{r}
+WHposconPOOLED$glanced
+
+compareWHpool<- with(impPOOLED, svyglm(log(WEEKHOUR +1089/40)~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+URECOSEC+TILLJOBb, design = wPOOLED))
+compareWHHCPOOLED<- pool(compareWHpool)
+compareWHHCPOOLED$glanced
+## Contexts are better at the AIC and BIC measures, but what about Predicted probabilities?
+
+```
+
+
+
+```{r}
+modelc <- svyglm(log(WEEKHOUR +1089/40)~ as.numeric(WHENARRIVE)+SEX+AGE+numppl+MARSTAT+DEPENDS+EDUC+PREENG+CURENGEN+CUREMPT+CURENG+URECOSEC+TILLJOBb, design = wPOOLED)
+
+
+#Making the hypothetical dataframe for a maximally advantaged contextual person. 
+maxconpred <- data.frame(WHENARRIVE=factor(3), SEX="Male", AGE=39.7, numppl=3, MARSTAT="Never Married", TILLJOB=1, EDUC=12, ECOSECTOR="Professional", URECOSEC="Retail/Sales", ORIGIN="Cuba", PREENG="Not Well", HOSTREG="South", CURENGEN="No", CUREMPT="No", CURENG="Well", DEPENDS=1, SVYYR=2018, WEEKHOUR=38.33, TILLJOBb=1)
+
+
+maxhumpred <- data.frame(WHENARRIVE=factor(3), SEX="Male", AGE=39.7, numppl=3, MARSTAT="Never Married", TILLJOB=1, EDUC=20, ECOSECTOR="Other", URECOSEC= "Professional/ED/Health/SocialServices", ORIGIN="Iraq", PREENG="Very Well", HOSTREG="West", CURENGEN="No", CUREMPT="No", CURENG="Very Well", DEPENDS=1, SVYYR=2016, WEEKHOUR=38.33, TILLJOBb=1)
+
+predict(modelc, newdata =maxconpred, type = "response")
+
+predict(modelc, newdata =maxhumpred, type = "response")
+
+```
+
+
+
